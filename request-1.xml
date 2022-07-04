@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsman="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" xmlns:wsen="http://schemas.xmlsoap.org/ws/2004/09/enumeration">
+  <s:Header>
+    <wsa:Action s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/transfer/Get</wsa:Action>
+    <wsa:To s:mustUnderstand="true">https://?:443/wsman</wsa:To>
+    <wsman:ResourceURI s:mustUnderstand="true">http://schemas.dell.com/wbem/wscim/1/cim-schema/2/-v</wsman:ResourceURI>
+    <wsa:MessageID s:mustUnderstand="true">56023ed9-f0fb-4b1c-a0fc-799f181a2aa6</wsa:MessageID>
+    <wsa:ReplyTo>
+      <wsa:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:Address>
+    </wsa:ReplyTo>
+    <wsman:SelectorSet>
+      
+    </wsman:SelectorSet>
+  </s:Header>
+  <s:Body/>
+</s:Envelope>

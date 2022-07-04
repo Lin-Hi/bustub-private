@@ -1,0 +1,2 @@
+curl https://?:443/wsman --insecure --user ?:? --retry 1 --connect-timeout 180 -H 'Content-Type: application/soap+xml;charset=utf-8'  -d @./request-1.xml -o ./response-1.xml
+curl: (3) URL using bad/illegal format or missing URL
