@@ -52,7 +52,7 @@ class ExtendibleHashTable {
    * @param value the value to be associated with the key
    * @return true if insert succeeded, false otherwise
    */
-  auto Insert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
+  bool Insert(Transaction *transaction, const KeyType &key, const ValueType &value);
 
   /**
    * Deletes the associated value for the given key.
@@ -62,7 +62,7 @@ class ExtendibleHashTable {
    * @param value the value to delete
    * @return true if remove succeeded, false otherwise
    */
-  auto Remove(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
+  bool Remove(Transaction *transaction, const KeyType &key, const ValueType &value);
 
   /**
    * Performs a point query on the hash table.
@@ -72,12 +72,12 @@ class ExtendibleHashTable {
    * @param[out] result the value(s) associated with a given key
    * @return the value(s) associated with the given key
    */
-  auto GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result) -> bool;
+  bool GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result);
 
   /**
    * Returns the global depth.  Do not touch.
    */
-  auto GetGlobalDepth() -> uint32_t;
+  uint32_t GetGlobalDepth();
 
   /**
    * Helper function to verify the integrity of the extendible hash table's directory.  Do not touch.
@@ -92,7 +92,7 @@ class ExtendibleHashTable {
    * @param key the key to hash
    * @return the downcasted 32-bit hash
    */
-  inline auto Hash(KeyType key) -> uint32_t;
+  inline uint32_t Hash(KeyType key);
 
   /**
    * KeyToDirectoryIndex - maps a key to a directory index
@@ -110,7 +110,7 @@ class ExtendibleHashTable {
    * @param dir_page to use for lookup of global depth
    * @return the directory index
    */
-  inline auto KeyToDirectoryIndex(KeyType key, HashTableDirectoryPage *dir_page) -> uint32_t;
+  uint32_t KeyToDirectoryIndex(KeyType key, HashTableDirectoryPage *dir_page);
 
   /**
    * Get the bucket page_id corresponding to a key.
@@ -119,14 +119,14 @@ class ExtendibleHashTable {
    * @param dir_page a pointer to the hash table's directory page
    * @return the bucket page_id corresponding to the input key
    */
-  inline auto KeyToPageId(KeyType key, HashTableDirectoryPage *dir_page) -> uint32_t;
+  page_id_t KeyToPageId(KeyType key, HashTableDirectoryPage *dir_page);
 
   /**
    * Fetches the directory page from the buffer pool manager.
    *
    * @return a pointer to the directory page
    */
-  auto FetchDirectoryPage() -> HashTableDirectoryPage *;
+  HashTableDirectoryPage *FetchDirectoryPage();
 
   /**
    * Fetches the a bucket page from the buffer pool manager using the bucket's page_id.
@@ -134,17 +134,19 @@ class ExtendibleHashTable {
    * @param bucket_page_id the page_id to fetch
    * @return a pointer to a bucket page
    */
-  auto FetchBucketPage(page_id_t bucket_page_id) -> HASH_TABLE_BUCKET_TYPE *;
+  HASH_TABLE_BUCKET_TYPE *FetchBucketPage(page_id_t bucket_page_id);
 
   /**
-   * Performs insertion with an optional bucket splitting.
+   * Performs insertion with an optional bucket splitting.  If the 
+   * page is still full after the split, then recursively split.
+   * This is exceedingly rare, but possible.
    *
    * @param transaction a pointer to the current transaction
    * @param key the key to insert
    * @param value the value to insert
    * @return whether or not the insertion was successful
    */
-  auto SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
+  bool SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value);
 
   /**
    * Optionally merges an empty bucket into it's pair.  This is called by Remove,
@@ -154,6 +156,8 @@ class ExtendibleHashTable {
    * 1. The bucket is no longer empty.
    * 2. The bucket has local depth 0.
    * 3. The bucket's local depth doesn't match its split image's local depth.
+   * 
+   * Note: we do not merge recursively.
    *
    * @param transaction a pointer to the current transaction
    * @param key the key that was removed
