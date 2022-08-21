@@ -267,6 +267,57 @@ auto HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
  * MERGE
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
+void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const ValueType &value) {
+  table_latch_.WLock();
+
+  auto dir_page_data = FetchDirectoryPage();
+
+  for (uint32_t i = 0;; i++) {
+    // 目录的大小可能会变小，所以每次都要判断bucket是不是超过了
+    if (i >= dir_page_data->Size()) {
+      break;
+    }
+    auto old_local_depth = dir_page_data->GetLocalDepth(i);
+    auto bucket_page_id = dir_page_data->GetBucketPageId(i);
+    auto bucket_page = FetchBucketPage(bucket_page_id);
+    auto bucket_page_data = FetchHashBucketPage(bucket_page);
+    bucket_page->RLatch();
+
+    if (old_local_depth > 1 && bucket_page_data->IsEmpty()) {  // 原bucket空了
+      auto split_bucket_idx = dir_page_data->GetSplitImageIndex(i);
+      if (dir_page_data->GetLocalDepth(split_bucket_idx) == old_local_depth) {
+        dir_page_data->DecrLocalDepth(i);
+        dir_page_data->DecrLocalDepth(split_bucket_idx);
+        dir_page_data->SetBucketPageId(
+            i, dir_page_data->GetBucketPageId(split_bucket_idx));  // 将分割bucket的pageID赋给原bucket
+        auto new_bucket_page_id = dir_page_data->GetBucketPageId(i);
+
+        for (uint32_t j = 0; j < dir_page_data->Size();
+             ++j) {  // 遍历找到原pageID和分割pageID对应的bucketIdx，将他们的pageID都设置为分割pageID
+          if (j == i || j == split_bucket_idx) {
+            continue;
+          }
+          auto cur_bucket_page_id = dir_page_data->GetBucketPageId(j);
+          if (cur_bucket_page_id == bucket_page_id || cur_bucket_page_id == new_bucket_page_id) {
+            dir_page_data->SetLocalDepth(j, dir_page_data->GetLocalDepth(i));
+            dir_page_data->SetBucketPageId(j, new_bucket_page_id);
+          }
+        }
+        // 这样操作完后，无论分割bucket还是原bucket，它们的page都是分割后的page
+      }
+      if (dir_page_data->CanShrink()) {
+        dir_page_data->DecrGlobalDepth();
+      }
+    }
+    bucket_page->RUnlatch();
+    buffer_pool_manager_->UnpinPage(bucket_page_id, false);
+  }
+  buffer_pool_manager_->UnpinPage(directory_page_id_, true);
+
+  table_latch_.WUnlock();
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::Merge(Transaction *transaction, uint32_t bucket_index) {
   table_latch_.WLock();
   HashTableDirectoryPage *dir_page = FetchDirectoryPage();
@@ -292,10 +343,8 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, uint32_t bucket_index) {
   HASH_TABLE_BUCKET_TYPE *bucket = FetchHashBucketPage(bucket_page);
   if (!bucket->IsEmpty()) {
     bucket_page->RUnlatch();
-//    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
-//    assert(buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), false));
-    buffer_pool_manager_->UnpinPage(bucket_page_id, false);
-    buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), false);
+    assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
+    assert(buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), false));
     table_latch_.WUnlock();
     return;
   }
