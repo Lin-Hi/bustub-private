@@ -26,29 +26,97 @@ void HashTableDirectoryPage::SetLSN(lsn_t lsn) { lsn_ = lsn; }
 
 auto HashTableDirectoryPage::GetGlobalDepth() -> uint32_t { return global_depth_; }
 
-auto HashTableDirectoryPage::GetGlobalDepthMask() -> uint32_t { return 0; }
+auto HashTableDirectoryPage::GetGlobalDepthMask() -> uint32_t {
+  uint32_t mask = (1 << (this->global_depth_)) - 1;
+  return mask;
+}
 
-void HashTableDirectoryPage::IncrGlobalDepth() {}
+void HashTableDirectoryPage::IncrGlobalDepth() {
+  if (global_depth_ >= MAX_BUCKET_DEPTH) {
+    //  LOG_DEBUG("Global depth can't be increased.")
+    return;
+  }
 
-void HashTableDirectoryPage::DecrGlobalDepth() { global_depth_--; }
+  uint32_t pre_num = Size();
+  for (uint32_t pre_idx = 0, new_idx = pre_num; pre_idx < pre_num; pre_idx++, new_idx++) {
+    local_depths_[new_idx] = local_depths_[pre_idx];
+    bucket_page_ids_[new_idx] = bucket_page_ids_[pre_idx];
+  }
+  global_depth_++;
+}
 
-auto HashTableDirectoryPage::GetBucketPageId(uint32_t bucket_idx) -> page_id_t { return 0; }
+void HashTableDirectoryPage::DecrGlobalDepth() {
+  if (global_depth_ <= 0) {
+    //    LOG_DEBUG("Global depth can't be decreased.");
+    return;
+  }
 
-void HashTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id_t bucket_page_id) {}
+  global_depth_--;
+}
 
-auto HashTableDirectoryPage::Size() -> uint32_t { return 0; }
+auto HashTableDirectoryPage::GetBucketPageId(uint32_t bucket_idx) -> page_id_t {
+  page_id_t page_id = bucket_page_ids_[bucket_idx];
+  return page_id;
+}
 
-auto HashTableDirectoryPage::CanShrink() -> bool { return false; }
+void HashTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id_t bucket_page_id) {
+  bucket_page_ids_[bucket_idx] = bucket_page_id;
+}
 
-auto HashTableDirectoryPage::GetLocalDepth(uint32_t bucket_idx) -> uint32_t { return 0; }
+auto HashTableDirectoryPage::Size() -> uint32_t { return 1 << global_depth_; }
 
-void HashTableDirectoryPage::SetLocalDepth(uint32_t bucket_idx, uint8_t local_depth) {}
+auto HashTableDirectoryPage::CanShrink() -> bool {
+  for (size_t i = 0; i < Size(); i++) {
+    if (local_depths_[i] >= global_depth_) {
+      return false;
+    }
+  }
+  return true;
+}
 
-void HashTableDirectoryPage::IncrLocalDepth(uint32_t bucket_idx) {}
+auto HashTableDirectoryPage::GetLocalDepth(uint32_t bucket_idx) -> uint32_t {
+  uint32_t local_depth = local_depths_[bucket_idx];
+  return local_depth;
+}
 
-void HashTableDirectoryPage::DecrLocalDepth(uint32_t bucket_idx) {}
+void HashTableDirectoryPage::SetLocalDepth(uint32_t bucket_idx, uint8_t local_depth) {
+  if (local_depth > global_depth_) {
+    //    LOG_DEBUG("Local depth is larger than global depth.");
+    return;
+  }
 
-auto HashTableDirectoryPage::GetLocalHighBit(uint32_t bucket_idx) -> uint32_t { return 0; }
+  local_depths_[bucket_idx] = local_depth;
+}
+
+void HashTableDirectoryPage::IncrLocalDepth(uint32_t bucket_idx) {
+  if (local_depths_[bucket_idx] >= global_depth_) {
+    //    LOG_DEBUG("Local depth of bucket %d can't be increased.",bucket_idx);
+    return;
+  }
+
+  local_depths_[bucket_idx]++;
+}
+
+void HashTableDirectoryPage::DecrLocalDepth(uint32_t bucket_idx) {
+  if (local_depths_[bucket_idx] <= 0) {
+    //    LOG_DEBUG("Local depth of bucket %d can't be decreased.",bucket_idx);
+    return;
+  }
+
+  local_depths_[bucket_idx]--;
+}
+
+auto HashTableDirectoryPage::GetLocalHighBit(uint32_t bucket_idx) -> uint32_t {
+  return 1 << (local_depths_[bucket_idx] - 1);
+}
+
+auto HashTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) -> uint32_t {
+  return bucket_idx ^ GetLocalHighBit(bucket_idx);
+}
+
+auto HashTableDirectoryPage::GetLocalDepthMask(uint32_t bucket_idx) -> uint32_t {
+  return (1 << local_depths_[bucket_idx]) - 1;
+}
 
 /**
  * VerifyIntegrity - Use this for debugging but **DO NOT CHANGE**

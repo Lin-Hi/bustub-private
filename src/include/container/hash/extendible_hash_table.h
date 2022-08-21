@@ -134,7 +134,8 @@ class ExtendibleHashTable {
    * @param bucket_page_id the page_id to fetch
    * @return a pointer to a bucket page
    */
-  auto FetchBucketPage(page_id_t bucket_page_id) -> HASH_TABLE_BUCKET_TYPE *;
+  auto FetchBucketPage(page_id_t bucket_page_id) -> Page *;
+  auto FetchHashBucketPage(Page *page) -> HASH_TABLE_BUCKET_TYPE *;
 
   /**
    * Performs insertion with an optional bucket splitting.
@@ -158,8 +159,13 @@ class ExtendibleHashTable {
    * @param transaction a pointer to the current transaction
    * @param key the key that was removed
    * @param value the value that was removed
+   *
+   * @param bucket_index the bucket index that has removed elements
    */
-  void Merge(Transaction *transaction, const KeyType &key, const ValueType &value);
+  void Merge(Transaction *transaction, uint32_t bucket_index);
+
+  // latch for directory page
+  std::mutex directory_latch_;
 
   // member variables
   page_id_t directory_page_id_;
