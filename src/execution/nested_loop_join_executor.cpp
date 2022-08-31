@@ -17,10 +17,45 @@ namespace bustub {
 NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const NestedLoopJoinPlanNode *plan,
                                                std::unique_ptr<AbstractExecutor> &&left_executor,
                                                std::unique_ptr<AbstractExecutor> &&right_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      left_executor_(std::move(left_executor)),
+      right_executor_(std::move(right_executor)),
+      now_id_(0) {}
 
-void NestedLoopJoinExecutor::Init() {}
+void NestedLoopJoinExecutor::Init() {
+  RID left_rid;
+  RID right_rid;
+  Tuple left_tuple;
+  Tuple right_tuple;
 
-auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool { return false; }
+  left_executor_->Init();
+  while (left_executor_->Next(&left_tuple, &left_rid)) {
+    right_executor_->Init();
+    while (right_executor_->Next(&right_tuple, &right_rid)) {
+      if (plan_->Predicate() == nullptr || plan_->Predicate()
+                                               ->EvaluateJoin(&left_tuple, left_executor_->GetOutputSchema(),
+                                                              &right_tuple, right_executor_->GetOutputSchema())
+                                               .GetAs<bool>()) {
+        std::vector<Value> output;
+        for (const auto &col : GetOutputSchema()->GetColumns()) {
+          output.push_back(col.GetExpr()->EvaluateJoin(&left_tuple, left_executor_->GetOutputSchema(), &right_tuple,
+                                                       right_executor_->GetOutputSchema()));
+        }
+        result_.emplace_back(Tuple(output, GetOutputSchema()));
+      }
+    }
+  }
+}
+
+auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
+  if (now_id_ < result_.size()) {
+    *tuple = result_[now_id_];
+    *rid = tuple->GetRid();
+    now_id_++;
+    return true;
+  }
+  return false;
+}
 
 }  // namespace bustub

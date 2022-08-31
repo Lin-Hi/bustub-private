@@ -239,7 +239,7 @@ auto HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   table_latch_.WLock();
   HashTableDirectoryPage *dir_page = FetchDirectoryPage();
   page_id_t bucket_page_id = KeyToPageId(key, dir_page);
-  uint32_t bucket_index = KeyToDirectoryIndex(key, dir_page);
+  //  uint32_t bucket_index = KeyToDirectoryIndex(key, dir_page);
   Page *bucket_page = FetchBucketPage(bucket_page_id);
   bucket_page->WLatch();
   HASH_TABLE_BUCKET_TYPE *bucket = FetchHashBucketPage(bucket_page);
@@ -252,13 +252,12 @@ auto HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   }
 
   bool bucket_is_empty = bucket->IsEmpty();
-
   bucket_page->WUnlatch();
   assert(buffer_pool_manager_->UnpinPage(dir_page->GetPageId(), true));
   assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
   table_latch_.WUnlock();
   if (bucket_is_empty) {
-    Merge(transaction, bucket_index);
+    Merge(transaction, key, value);
   }
   return has_remove;
 }

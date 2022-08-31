@@ -50,7 +50,8 @@ class LockManager {
     // for notifying blocked transactions on this rid
     std::condition_variable cv_;
     // txn_id of an upgrading transaction (if any)
-    txn_id_t upgrading_ = INVALID_TXN_ID;
+    // txn_id_t upgrading_ = INVALID_TXN_ID;
+    bool upgrading_ = false;
   };
 
  public:
@@ -105,8 +106,15 @@ class LockManager {
   auto Unlock(Transaction *txn, const RID &rid) -> bool;
 
  private:
-  std::mutex latch_;
+  /**
+   * Add a transaction into request queue.
+   * @param lock_queue the waiting queue
+   * @param txn_id the id of transaction
+   * @param lock_mode the mode of lock
+   */
+  inline void InsertTxnIntoLockQueue(LockRequestQueue *lock_queue, txn_id_t txn_id, LockMode lock_mode);
 
+  std::mutex latch_;
   /** Lock table for lock requests. */
   std::unordered_map<RID, LockRequestQueue> lock_table_;
 };

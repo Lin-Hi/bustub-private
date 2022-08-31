@@ -162,6 +162,7 @@ class ExtendibleHashTable {
    *
    * @param bucket_index the bucket index that has removed elements
    */
+  void Merge(Transaction *transaction, const KeyType &key, const ValueType &value);
   void Merge(Transaction *transaction, uint32_t bucket_index);
 
   // latch for directory page
